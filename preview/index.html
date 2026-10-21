@@ -220,7 +220,7 @@
 
   // Name with afterimages and glitch slices
   function drawName(t) {
-    const cx = W / 2, cy = H * 0.6, rot = -0.06;
+    const cx = W / 2, cy = H * 0.58, rot = -0.06;
     const popAt = tt => {
       const u = clamp((tt - IMPACT + 0.08) / 0.08);
       return u > 0 ? 1 + Math.pow(1 - u, 3) * 2.4 : 0;
@@ -230,12 +230,12 @@
       const fade = clamp((IMPACT + 0.22 - t) / 0.22);
       for (let k = 3; k >= 1; k--) {
         const p = popAt(t - k * 0.035);
-        if (p > 0) text(NAME, cx, cy, H * 0.34 * p * (1 + k * 0.06), DISPLAY, mix(C.bg, k === 1 ? C.cyan : C.blue, fade * (0.55 - k * 0.12)), "center", rot);
+        if (p > 0) text(NAME, cx, cy, H * 0.22 * p * (1 + k * 0.06), DISPLAY, mix(C.bg, k === 1 ? C.cyan : C.blue, fade * (0.55 - k * 0.12)), "center", rot);
       }
     }
     const pop = popAt(t);
     if (!pop) return;
-    const px = H * 0.34 * pop;
+    const px = H * 0.22 * pop;
     const glitch = t < IMPACT + 0.3 ? 1 - (t - IMPACT) / 0.3 : 0;
     const split = H * (0.008 + 0.03 * Math.max(0, glitch));
     const frameSeed = Math.floor(t * 60);
@@ -246,7 +246,7 @@
 
     // Glitch: horizontal cuts through the word plus displaced bars
     if (glitch > 0.05) {
-      const top = cy - H * 0.19, hgt = H * 0.38, left = cx - H * 0.55, wid = H * 1.1;
+      const top = cy - H * 0.125, hgt = H * 0.25, left = cx - H * 0.36, wid = H * 0.72;
       for (let i = 0; i < 5; i++) {
         const r = hrand(frameSeed * 7 + i);
         const y = top + r * hgt, h = H * (0.006 + hrand(frameSeed * 3 + i) * 0.02) * glitch;
@@ -444,7 +444,7 @@
         let cx, cy;
         if (burst) {
           const ang = hrand(i + 81) * Math.PI * 2, dist = easeOut(life) * H * 0.55;
-          cx = W / 2 + Math.cos(ang) * dist * 1.6; cy = H * 0.6 + Math.sin(ang) * dist;
+          cx = W / 2 + Math.cos(ang) * dist * 1.6; cy = H * 0.58 + Math.sin(ang) * dist;
         } else {
           cx = W * (0.08 + hrand(i + 82) * 0.84); cy = H * (0.1 + hrand(i + 83) * 0.8);
         }
@@ -496,12 +496,13 @@
     // Greeting line
     const l1 = scramble(line1, t, 0.45, 0.03);
     if (l1) {
-      const px = H * 0.052;
+      let px = H * 0.085;
       ctx.font = `700 ${px}px ${MONO}`;
+      while (ctx.measureText(line1.split("").join("\u2009")).width > W * 0.8) { px *= 0.92; ctx.font = `700 ${px}px ${MONO}`; }
       const spaced = l1.split("").join(" ");
       const fw = ctx.measureText(line1.split("").join(" ")).width;
       ctx.save();
-      ctx.translate(W / 2 - fw / 2, H * 0.36); ctx.rotate(-0.06);
+      ctx.translate(W / 2 - fw / 2, H * 0.4); ctx.rotate(-0.06);
       ctx.textAlign = "left"; ctx.textBaseline = "middle";
       ctx.fillStyle = C.ice;
       ctx.fillText(spaced, 0, 0);
@@ -518,7 +519,7 @@
     // Cut under the name
     const up = easeOut(clamp((t - IMPACT - 0.08) / 0.25));
     if (up > 0) {
-      const y = H * 0.8, h = H * 0.016, x0 = W * 0.3, x1 = x0 + up * W * 0.4;
+      const y = H * 0.72, h = H * 0.016, x0 = W * 0.3, x1 = x0 + up * W * 0.4;
       poly([x0 + h, y - h / 2, x1 + h, y - h / 2, x1 - h, y + h / 2, x0 - h, y + h / 2], C.cyan);
     }
 

@@ -516,7 +516,7 @@ BG_UNIT = font(DISPLAY_FONT, BG_PX).measure(BG_TICKER)
 BG_SPAN = math.hypot(W, H) * 1.3
 
 SCAN_GAP = max(3, int(H / 240))
-NAME_PX = H * 0.34
+NAME_PX = H * 0.22
 FLOAT_PX = H * 0.16
 canvas.build_scanlines(SCAN_GAP)
 
@@ -948,7 +948,7 @@ def draw_scene(t, poly):
             sc = math.sin(life * math.pi) * H * (0.022 + hrand(i + 80) * 0.035)
             if burst:
                 ang, dist = hrand(i + 81) * math.pi * 2, ease_out(life) * H * 0.55
-                cx, cy = W / 2 + math.cos(ang) * dist * 1.6, H * 0.6 + math.sin(ang) * dist
+                cx, cy = W / 2 + math.cos(ang) * dist * 1.6, H * 0.58 + math.sin(ang) * dist
             else:
                 cx, cy = W * (0.08 + hrand(i + 82) * 0.84), H * (0.1 + hrand(i + 83) * 0.8)
             front, back = (ICE, NIGHT) if i % 2 else (NIGHT, ICE)
@@ -999,10 +999,12 @@ def draw_scene(t, poly):
     # Greeting line with blinking cursor
     l1 = scramble(LINE1_SPACED, t, 0.45, 0.015)
     if l1:
-        px = H * 0.052
+        px = H * 0.085
+        while font(MONO_FONT, px, "bold").measure(LINE1_SPACED) > W * 0.8:
+            px *= 0.92   # long greetings shrink to fit
         base = font(MONO_FONT, px, "bold")
         fw = base.measure(LINE1_SPACED)
-        x0, y0, rot = W / 2 - fw / 2, H * 0.36, -0.06
+        x0, y0, rot = W / 2 - fw / 2, H * 0.4, -0.06
         text(l1, x0, y0, font(MONO_FONT, px * zoom, "bold"), ICE, "w", rot)
         if t < IMPACT + 0.4 and int(t * 8) % 2 == 0:
             cw = base.measure(l1) + px * 0.2
@@ -1012,7 +1014,7 @@ def draw_scene(t, poly):
                                   (cw + px * 0.5, px * 0.45), (cw, px * 0.45))], CYAN)
 
     # Name: afterimages, slam, colour split, glitch slices
-    cx, cy, rot = W / 2, H * 0.6, -0.06
+    cx, cy, rot = W / 2, H * 0.58, -0.06
 
     def pop_at(tt):
         u = clamp((tt - IMPACT + 0.08) / 0.08)
@@ -1038,7 +1040,7 @@ def draw_scene(t, poly):
             canvas.scaled_text(x, y, NAME, col, DISPLAY_FONT, "normal", NAME_PX, pop * zoom, -math.degrees(rot))
 
         if glitch > 0.05:
-            top, hgt, left, wid = cy - H * 0.19, H * 0.38, cx - H * 0.55, H * 1.1
+            top, hgt, left, wid = cy - H * 0.125, H * 0.25, cx - H * 0.36, H * 0.72
             for i in range(5):
                 y = top + hrand(seed * 7 + i) * hgt
                 h = H * (0.006 + hrand(seed * 3 + i) * 0.02) * glitch
@@ -1053,7 +1055,7 @@ def draw_scene(t, poly):
     # Cut under the name
     up = ease_out(clamp((t - IMPACT - 0.08) / 0.25))
     if up > 0:
-        yy, h, x0 = H * 0.8, H * 0.016, W * 0.3
+        yy, h, x0 = H * 0.72, H * 0.016, W * 0.3
         x1 = x0 + up * W * 0.4
         cpoly([(x0 + h, yy - h / 2), (x1 + h, yy - h / 2), (x1 - h, yy + h / 2), (x0 - h, yy + h / 2)], CYAN)
 
