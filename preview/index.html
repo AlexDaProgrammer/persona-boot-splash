@@ -1,0 +1,877 @@
+<title>Alex Startup Splash</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+  /* Layout: one 16:9 stage that plays the splash, with mode switch, replay control and notes underneath */
+  :root {
+    --night: #03081a;
+    --navy: #071433;
+    --blue: #1c5fd6;
+    --cyan: #4fd8ff;
+    --ice: #eef7ff;
+    --muted: #8aa6d6;
+    --dh: #c4ff5e;
+    --display: "Anton", Impact, "Arial Narrow", sans-serif;
+    --body: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+    --mono: "JetBrains Mono", Consolas, ui-monospace, monospace;
+    color-scheme: dark;
+  }
+  html, body { background: var(--night); color: var(--ice); }
+  body {
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.5;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 28px 48px;
+  }
+  main { max-width: 1040px; margin: 0 auto; display: grid; gap: 22px; }
+  .stage {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 16 / 9;
+    background: var(--navy);
+    overflow: hidden;
+    cursor: pointer;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .label {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  button {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border: 0;
+    padding: 10px 22px;
+    cursor: pointer;
+    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  }
+  button:focus-visible { outline: 3px solid var(--ice); outline-offset: 3px; }
+  #replay { color: var(--night); background: var(--cyan); }
+  #replay:hover { background: var(--ice); }
+  .mode { display: flex; }
+  .mode button { background: #10204a; color: var(--muted); }
+  .mode button[aria-pressed="true"] { background: var(--ice); color: var(--night); }
+  .mode button.dh[aria-pressed="true"] { background: var(--dh); color: #06170c; }
+  .mode button.p5[aria-pressed="true"] { background: #d10a1f; color: #ffffff; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+  .note { min-width: 0; border-top: 2px solid var(--blue); padding-top: 10px; }
+  .note h2 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 22px;
+    letter-spacing: 0.04em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  .note p { margin: 0; color: var(--muted); max-width: 62ch; }
+  .note strong { color: var(--cyan); font-weight: 700; }
+</style>
+
+<main>
+  <div class="stage" id="stage"><canvas id="splash" aria-label="Animated splash reading Welcome back Alex"></canvas></div>
+  <div class="bar">
+    <span class="label">Preview · 3 s, 6 s in Dark Hour · click the screen to skip</span>
+    <div class="controls">
+      <div class="mode" role="group" aria-label="Mode">
+        <button id="mode-normal" type="button" aria-pressed="true">Normal</button>
+        <button id="mode-dh" class="dh" type="button" aria-pressed="false">Dark Hour</button>
+        <button id="mode-p5" class="p5" type="button" aria-pressed="false">Persona 5</button>
+      </div>
+      <button id="replay" type="button">Replay</button>
+    </div>
+  </div>
+  <section class="notes">
+    <div class="note">
+      <h2>Boot time impact</h2>
+      <p>Your boot itself is <strong>unchanged</strong>. The splash starts after you sign in, takes about <strong>0.3 to 1 second</strong> to open, then runs for 3 seconds. Any key or click skips straight to the exit.</p>
+    </div>
+    <div class="note">
+      <h2>The Dark Hour</h2>
+      <p>Dark Hour opens with the midnight clock: it ticks over, turns green and shatters, adding 3 seconds. On your PC it switches on by itself between <strong>midnight and 1am</strong>. Persona 5 mode is manual: pick it with the mode switcher. Use the buttons to see both here.</p>
+    </div>
+    <div class="note">
+      <h2>On your PC</h2>
+      <p>The blades open onto your real desktop, and the readout shows your real PC name, uptime, battery, Windows power mode and free disk space. Here they're example values.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const canvas = document.getElementById("splash");
+  const ctx = canvas.getContext("2d");
+  const NORMAL = { night: "#03081a", bg: "#071433", blue: "#1c5fd6", cyan: "#4fd8ff", ice: "#eef7ff" };
+  const DARK_HOUR = { night: "#020803", bg: "#06170c", blue: "#2e7d3c", cyan: "#c4ff5e", ice: "#effee0" };
+  const P5 = { night: "#0b0b0b", bg: "#d10a1f", blue: "#7a0010", cyan: "#111111", ice: "#ffffff" };
+  const DURATION = 3.0, IMPACT = 0.95;
+  const CLOSE_START = 2.35, CLOSE_END = 2.55, OPEN_START = 2.7;
+  const DISPLAY = '"Anton", Impact, "Arial Narrow", sans-serif';
+  const MONO = '"JetBrains Mono", Consolas, ui-monospace, monospace';
+  const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#/<>_";
+  const NAME = "ALEX";
+  let bgTicker = "BURN MY DREAD  ";
+  const PHRASES = ["MEMENTO MORI", "SYSTEM ONLINE", "TIME NEVER WAITS", "STAY SHARP", "SEIZE THE DAY"];
+  // Example values; the Windows script reads the real ones
+  const SYSINFO = "ALEX-PC · WINDOWS 11 · BUILD 26100";
+  const EXAMPLE = { uptime: "00:00:41", power: "87%", perf: "BALANCED", disk: "C: 412 GB FREE" };
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  let C = NORMAL, darkHour = false, mode = "normal", W = 0, H = 0, shards = [], rays = [], start = 0, raf = 0, playing = false;
+  let line1 = "", bandText = "", readout = [];
+
+  const clamp = v => Math.max(0, Math.min(1, v));
+  const easeOut = u => 1 - Math.pow(1 - u, 3);
+  const easeIn = u => u * u * u;
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const mix = (a, b, t) => {
+    const A = hex(a), B = hex(b); t = clamp(t);
+    return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join("");
+  };
+  const rand = (() => { let s = 7; return () => (s = (s * 9301 + 49297) % 233280) / 233280; })();
+  const J = Array.from({ length: 128 }, rand);
+  const hrand = n => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
+
+  function greeting() {
+    if (darkHour) return "THE DARK HOUR";
+    const h = new Date().getHours();
+    return h >= 5 && h < 12 ? "GOOD MORNING" : h >= 12 && h < 17 ? "GOOD AFTERNOON" : h >= 17 && h < 23 ? "GOOD EVENING" : "WELCOME BACK";
+  }
+  function dateTag() {
+    const d = new Date();
+    const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+    return `${days[d.getDay()]} ${String(d.getDate()).padStart(2, "0")} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+  function clock() {
+    if (darkHour) return "00:00";
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+
+  function poly(pts, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i += 2) i ? ctx.lineTo(pts[i], pts[i + 1]) : ctx.moveTo(pts[i], pts[i + 1]);
+    ctx.closePath();
+    ctx.fill();
+  }
+  function text(str, x, y, px, font, color, align = "left", rot = 0) {
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(rot);
+    ctx.font = `${px}px ${font}`;
+    ctx.textAlign = align; ctx.textBaseline = "middle";
+    ctx.fillStyle = color;
+    ctx.fillText(str, 0, 0);
+    ctx.restore();
+  }
+  function scramble(str, t, t0, per) {
+    return [...str].map((ch, i) => {
+      if (ch === " ") return " ";
+      const at = t0 + i * per;
+      if (t >= at) return ch;
+      if (t < at - 0.25) return "";
+      return GLYPHS[(Math.floor(t * 40) * 7 + i * 13) % GLYPHS.length];
+    }).join("").trimEnd();
+  }
+
+  function layout() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    W = rect.width; H = rect.height;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    shards = [];
+    for (let i = 0; i < 10; i++) {
+      const side = i % 2 ? 1 : -1;
+      shards.push({
+        fx: W / 2 + side * W * (0.34 + J[20 + i] * 0.14),
+        fy: H * (0.16 + J[40 + i] * 0.66),
+        s: H * (0.04 + J[60 + i] * 0.07),
+        a: J[80 + i] * Math.PI * 2, side, at: 0.2 + i * 0.02, kind: i % 3,
+      });
+    }
+    rays = [];
+    for (let i = 0; i < 44; i++) rays.push({ a: (i / 44) * Math.PI * 2 + J[i + 3] * 0.1, w: 0.006 + J[i + 50] * 0.012 });
+  }
+
+  function setup() {
+    darkHour = mode === "dark";
+    C = mode === "dark" ? DARK_HOUR : mode === "p5" ? P5 : NORMAL;
+    line1 = greeting();
+    bgTicker = mode === "p5" ? "TAKE YOUR TIME  " : "BURN MY DREAD  ";
+    bandText = (mode === "dark" ? "MEMENTO MORI" : mode === "p5" ? "LIFE WILL CHANGE" : PHRASES[Math.floor(Math.random() * PHRASES.length)]) + "  //  ";
+    readout = [
+      ["USER", "ALEX"], ["AUTH", "VERIFIED"], ["UPTIME", EXAMPLE.uptime],
+      ["POWER", EXAMPLE.power], ["MODE", EXAMPLE.perf], ["DISK", EXAMPLE.disk], ["SESSION", mode === "dark" ? "DARK HOUR" : mode === "p5" ? "SHOWTIME" : "STARTING"],
+    ];
+  }
+
+  // Name with afterimages and glitch slices
+  function drawName(t) {
+    const cx = W / 2, cy = H * 0.6, rot = -0.06;
+    const popAt = tt => {
+      const u = clamp((tt - IMPACT + 0.08) / 0.08);
+      return u > 0 ? 1 + Math.pow(1 - u, 3) * 2.4 : 0;
+    };
+    // Afterimages trailing the slam
+    if (t < IMPACT + 0.22) {
+      const fade = clamp((IMPACT + 0.22 - t) / 0.22);
+      for (let k = 3; k >= 1; k--) {
+        const p = popAt(t - k * 0.035);
+        if (p > 0) text(NAME, cx, cy, H * 0.34 * p * (1 + k * 0.06), DISPLAY, mix(C.bg, k === 1 ? C.cyan : C.blue, fade * (0.55 - k * 0.12)), "center", rot);
+      }
+    }
+    const pop = popAt(t);
+    if (!pop) return;
+    const px = H * 0.34 * pop;
+    const glitch = t < IMPACT + 0.3 ? 1 - (t - IMPACT) / 0.3 : 0;
+    const split = H * (0.008 + 0.03 * Math.max(0, glitch));
+    const frameSeed = Math.floor(t * 60);
+    const jx = glitch > 0 ? (hrand(frameSeed) - 0.5) * H * 0.05 * glitch : 0;
+    text(NAME, cx - split + jx, cy, px, DISPLAY, C.blue, "center", rot);
+    text(NAME, cx + split - jx, cy + split * 0.4, px, DISPLAY, C.cyan, "center", rot);
+    text(NAME, cx + jx * 0.3, cy, px, DISPLAY, C.ice, "center", rot);
+
+    // Glitch: horizontal cuts through the word plus displaced bars
+    if (glitch > 0.05) {
+      const top = cy - H * 0.19, hgt = H * 0.38, left = cx - H * 0.55, wid = H * 1.1;
+      for (let i = 0; i < 5; i++) {
+        const r = hrand(frameSeed * 7 + i);
+        const y = top + r * hgt, h = H * (0.006 + hrand(frameSeed * 3 + i) * 0.02) * glitch;
+        ctx.fillStyle = C.bg;
+        ctx.fillRect(left, y, wid, h);
+      }
+      for (let i = 0; i < 3; i++) {
+        const r = hrand(frameSeed * 11 + i);
+        const y = top + r * hgt, h = H * (0.008 + hrand(frameSeed * 5 + i) * 0.03) * glitch;
+        const x = left + (hrand(frameSeed * 13 + i) - 0.3) * wid * 0.5;
+        ctx.fillStyle = i === 0 ? C.ice : C.cyan;
+        ctx.fillRect(x, y, wid * (0.2 + hrand(frameSeed + i) * 0.4), h);
+      }
+    }
+  }
+
+  function drawScene(t) {
+    ctx.save();
+    if (t > IMPACT && t < IMPACT + 0.25) {
+      const a = (1 - (t - IMPACT) / 0.25) * H * 0.02;
+      ctx.translate(Math.sin(t * 97) * a, Math.cos(t * 73) * a);
+    }
+    const zoom = 1 + 0.03 * easeOut(clamp((t - IMPACT) / 1.4));
+    ctx.translate(W / 2, H / 2); ctx.scale(zoom, zoom); ctx.translate(-W / 2, -H / 2);
+
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(-40, -40, W + 80, H + 80);
+
+    // Grid
+    const gp = clamp((t - 0.1) / 0.3);
+    if (gp > 0) {
+      ctx.strokeStyle = mix(C.bg, C.blue, gp * 0.2);
+      ctx.lineWidth = 1;
+      const g = H / 12;
+      ctx.beginPath();
+      for (let x = (W / 2) % g; x < W; x += g) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+      for (let y = (H / 2) % g; y < H; y += g) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+      ctx.stroke();
+    }
+
+    // Background rows of BURN MY DREAD
+    const bgp = clamp((t - 0.15) / 0.25);
+    if (bgp > 0) {
+      const px = H * 0.12, ang = -0.35, rows = 12, gapY = H * 0.16;
+      ctx.save();
+      ctx.translate(W / 2, H / 2);
+      ctx.rotate(ang);
+      ctx.font = `${px}px ${DISPLAY}`;
+      ctx.textAlign = "left"; ctx.textBaseline = "middle";
+      const unit = ctx.measureText(bgTicker).width;
+      const span = Math.hypot(W, H) * 1.3;
+      const line = bgTicker.repeat(Math.ceil(span / unit) + 2);
+      for (let r = 0; r < rows; r++) {
+        const dir = r % 2 ? 1 : -1;
+        const speed = unit * (1.3 + J[r + 90] * 0.6);
+        const off = ((t * speed + J[r + 100] * unit) % unit) * dir;
+        ctx.fillStyle = mix(C.bg, r % 3 === 1 ? C.cyan : C.blue, bgp * (r % 3 === 1 ? 0.12 : 0.22));
+        ctx.fillText(line, -span / 2 - unit + off, (r - (rows - 1) / 2) * gapY);
+      }
+      ctx.restore();
+    }
+
+    // Opening slice
+    const sl = clamp(t / 0.12);
+    if (sl > 0 && t < 0.4) {
+      ctx.strokeStyle = mix(C.ice, C.bg, clamp((t - 0.18) / 0.2));
+      ctx.lineWidth = Math.max(2, H * 0.004);
+      ctx.beginPath();
+      ctx.moveTo(-W * 0.05, H * 0.95);
+      ctx.lineTo(-W * 0.05 + sl * W * 1.1, H * 0.95 - sl * H * 0.9);
+      ctx.stroke();
+    }
+
+    // Bands
+    [
+      { y: 0.19, h: 0.15, c: C.blue, d: 0.08 },
+      { y: 0.3, h: 0.018, c: C.cyan, d: 0.11 },
+      { y: 0.86, h: 0.2, c: C.night, d: 0.14 },
+      { y: 0.74, h: 0.014, c: C.ice, d: 0.17 },
+    ].forEach(b => {
+      const p = easeOut(clamp((t - b.d) / 0.22));
+      if (p <= 0) return;
+      const yc = H * b.y, h = H * b.h, sk = h * 1.6, x0 = -W * 0.3, x1 = x0 + p * W * 1.7;
+      poly([x0 + sk, yc - h / 2, x1 + sk, yc - h / 2, x1 - sk, yc + h / 2, x0 - sk, yc + h / 2], b.c);
+    });
+
+    // Band ticker
+    const tk = clamp((t - 0.28) / 0.25);
+    if (tk > 0) {
+      const px = H * 0.095;
+      ctx.font = `${px}px ${DISPLAY}`;
+      const unit = ctx.measureText(bandText).width;
+      const off = (t * W * 0.18) % unit;
+      text(bandText.repeat(Math.ceil(W * 1.6 / unit) + 1), -W * 0.2 - off, H * 0.19, px, DISPLAY, mix(C.blue, C.ice, tk * 0.3), "left");
+    }
+
+    // Particles: each mode has its own set
+    const shapeAt = (shape, cx, cy, a, sx, sy = sx) => {
+      const ca = Math.cos(a), sa = Math.sin(a), pts = [];
+      shape.forEach(([x, y]) => pts.push(cx + (x * sx * ca - y * sy * sa), cy + (x * sx * sa + y * sy * ca)));
+      return pts;
+    };
+    if (mode === "dark") {
+      // Thin streaks falling through the dark
+      const dp = clamp((t - 0.2) / 0.3);
+      for (let i = 0; i < 16 && dp > 0; i++) {
+        const x = W * hrand(i + 40), len = H * (0.05 + hrand(i + 41) * 0.1);
+        const speed = H * (0.5 + hrand(i + 42) * 0.6);
+        const y = ((t * speed + hrand(i + 43) * H * 1.2) % (H * 1.2)) - H * 0.1;
+        ctx.fillStyle = mix(C.bg, C.cyan, dp * (0.25 + hrand(i + 44) * 0.35));
+        ctx.fillRect(x, y, Math.max(1.5, H * 0.002), len);
+      }
+      // A few coffin silhouettes rising slowly, outlined in green
+      const COFFIN = [[-0.32, -0.5], [0.32, -0.5], [0.5, -0.22], [0.3, 0.5], [-0.3, 0.5], [-0.5, -0.22]];
+      const SPOTS = [[0.08, 0.3], [0.92, 0.33], [0.05, 0.55], [0.83, 0.7], [0.96, 0.56]];
+      SPOTS.forEach(([fx, fy], i) => {
+        const p = clamp((t - 0.2 - i * 0.06) / 0.45);
+        if (p <= 0) return;
+        const e = easeOut(p);
+        const h = H * (0.09 + hrand(i + 7) * 0.05), w = h * 0.42;
+        const cx = W * fx, cy = H * fy + (1 - e) * H * 0.12 - t * H * 0.03;
+        const a = Math.sin(t * 1.5 + i) * 0.08 + (hrand(i + 19) - 0.5) * 0.5;
+        poly(shapeAt(COFFIN, cx, cy, a, w * 1.16, h * 1.08), mix(C.bg, C.cyan, e * 0.85));
+        poly(shapeAt(COFFIN, cx, cy, a, w, h), C.night);
+        const cross = mix(C.night, C.cyan, e * 0.5);
+        poly(shapeAt([[-0.04, -0.3], [0.04, -0.3], [0.04, 0.1], [-0.04, 0.1]], cx, cy, a, w, h), cross);
+        poly(shapeAt([[-0.18, -0.16], [0.18, -0.16], [0.18, -0.1], [-0.18, -0.1]], cx, cy, a, w, h), cross);
+      });
+      // Embers rising and flickering on top
+      const DIAMOND = [[0, -1], [0.6, 0], [0, 1], [-0.6, 0]];
+      const ep = clamp((t - 0.25) / 0.3);
+      for (let i = 0; i < 38 && ep > 0; i++) {
+        const speed = H * (0.12 + hrand(i + 200) * 0.3);
+        const y = H * 1.05 - ((t * speed + hrand(i + 201) * H * 1.1) % (H * 1.1));
+        const x = W * hrand(i + 202) + Math.sin(t * (1.5 + hrand(i + 203) * 2) + i) * H * 0.02;
+        const flick = 0.45 + 0.55 * Math.abs(Math.sin(t * (6 + hrand(i + 204) * 10) + i * 1.7));
+        const sc = H * (0.004 + hrand(i + 205) * 0.007);
+        poly(shapeAt(DIAMOND, x, y, t * 2 + i, sc), mix(C.bg, i % 4 ? C.cyan : C.ice, ep * flick));
+      }
+    } else if (mode === "p5") {
+      // Halftone dots fading in from two corners, like the P5 menus
+      const hp5 = clamp((t - 0.1) / 0.3);
+      if (hp5 > 0) {
+        const step = H / 26;
+        ctx.fillStyle = mix(C.bg, C.night, 0.5);
+        for (let y = step / 2; y < H; y += step) {
+          for (let x = step / 2; x < W; x += step) {
+            const d = Math.max(1 - Math.hypot(x, y) / (H * 0.6), 1 - Math.hypot(W - x, H - y) / (H * 0.6));
+            const r = d * step * 0.5 * hp5;
+            if (r > 0.6) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+          }
+        }
+      }
+      // Streaks shooting in from the screen edges, ending in sharp speech-bubble points
+      const per = 2 * (W + H);
+      for (let i = 0; i < 20; i++) {
+        const second = i >= 13;
+        const at = second ? IMPACT + (i - 13) * 0.025 : 0.16 + i * 0.028;
+        const p = clamp((t - at) / 0.13);
+        if (p <= 0) continue;
+        const d = ((i * 0.381966 + hrand(i + 120) * 0.08) % 1) * per;
+        let ex, ey;
+        if (d < W) { ex = d; ey = -H * 0.02; }
+        else if (d < W + H) { ex = W * 1.02; ey = d - W; }
+        else if (d < 2 * W + H) { ex = W - (d - W - H); ey = H * 1.02; }
+        else { ex = -W * 0.02; ey = H - (d - 2 * W - H); }
+        let dx = W / 2 - ex, dy = H * 0.56 - ey;
+        const dist = Math.hypot(dx, dy); dx /= dist; dy /= dist;
+        const rStop = 1 / Math.sqrt((dx * dx) / Math.pow(W * 0.3, 2) + (dy * dy) / Math.pow(H * 0.27, 2));
+        const L = easeOut(p) * Math.max(H * 0.1, (dist - rStop) * (0.5 + hrand(i + 121) * 0.5));
+        const w = H * (0.014 + hrand(i + 122) * 0.026);
+        const nx = -dy, ny = dx;
+        const tip = Math.min(L, w * 2.6), body = L - tip;
+        const bend = (hrand(i + 123) - 0.5) * w * 1.6;
+        const arrow = k => [
+          ex + nx * w * k / 2, ey + ny * w * k / 2,
+          ex + dx * body + nx * w * k * 0.32, ey + dy * body + ny * w * k * 0.32,
+          ex + dx * (L + w * (k - 1)) + nx * bend, ey + dy * (L + w * (k - 1)) + ny * bend,
+          ex + dx * body - nx * w * k * 0.32, ey + dy * body - ny * w * k * 0.32,
+          ex - nx * w * k / 2, ey - ny * w * k / 2,
+        ];
+        const [front, back] = [[C.night, C.ice], [C.ice, C.night], [C.blue, C.night]][i % 3];
+        poly(arrow(1.7), back);
+        poly(arrow(1), front);
+      }
+      // Sparkle stars on top: a scattered wave, then a burst out of ALEX when it lands
+      const STAR4 = [];
+      for (let k = 0; k < 8; k++) { const r = k % 2 ? 0.22 : 1; STAR4.push([Math.cos(k * Math.PI / 4) * r, Math.sin(k * Math.PI / 4) * r]); }
+      for (let i = 0; i < 18; i++) {
+        const burst = i >= 8;
+        const at = burst ? IMPACT + (i - 8) * 0.025 : 0.35 + i * 0.06;
+        const life = clamp((t - at) / (burst ? 0.55 : 0.7));
+        if (life <= 0 || life >= 1) continue;
+        const sc = Math.sin(life * Math.PI) * H * (0.022 + hrand(i + 80) * 0.035);
+        let cx, cy;
+        if (burst) {
+          const ang = hrand(i + 81) * Math.PI * 2, dist = easeOut(life) * H * 0.55;
+          cx = W / 2 + Math.cos(ang) * dist * 1.6; cy = H * 0.6 + Math.sin(ang) * dist;
+        } else {
+          cx = W * (0.08 + hrand(i + 82) * 0.84); cy = H * (0.1 + hrand(i + 83) * 0.8);
+        }
+        const [front, back] = i % 2 ? [C.ice, C.night] : [C.night, C.ice];
+        poly(shapeAt(STAR4, cx + sc * 0.1, cy + sc * 0.1, life * 1.5, sc * 1.3), back);
+        poly(shapeAt(STAR4, cx, cy, life * 1.5, sc), front);
+      }
+    } else {
+      // Rising bubbles, like the P3 Reload menus: thin rings, only in the middle of each side
+      const bp = clamp((t - 0.15) / 0.35);
+      for (let i = 0; i < 16 && bp > 0; i++) {
+        const left = i % 2 === 0;
+        const r = H * (0.008 + hrand(i + 500) * 0.022);
+        const speed = H * (0.05 + hrand(i + 501) * 0.07);
+        const top = H * 0.28, span = H * 0.5;
+        const k = ((t * speed / span + hrand(i + 502)) % 1);
+        const y = top + span * (1 - k);
+        const x = W * (left ? 0.04 + hrand(i + 503) * 0.15 : 0.81 + hrand(i + 503) * 0.15) + Math.sin(t * (1 + hrand(i + 504)) + i) * H * 0.01;
+        const edge = Math.min(1, k / 0.2, (1 - k) / 0.2);
+        ctx.globalAlpha = bp * edge * (0.45 + hrand(i + 505) * 0.4);
+        ctx.strokeStyle = C.cyan; ctx.lineWidth = Math.max(1, H * 0.0025);
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      shards.forEach(s => {
+        const p = clamp((t - s.at) / 0.2);
+        if (p <= 0) return;
+        const e = easeOut(p);
+        const cx = s.fx + s.side * (1 - e) * W * 0.6, cy = s.fy - (1 - e) * H * 0.2;
+        poly(shapeAt([[0, -1.3], [0.45, 0.8], [-0.35, 0.6]], cx, cy, s.a + (1 - e) * 3 + t * 0.05, s.s), [C.cyan, C.ice, C.blue][s.kind]);
+      });
+    }
+
+    // Speed lines
+    const rp = clamp((t - IMPACT) / 0.5);
+    if (rp > 0 && rp < 1) {
+      const col = mix(mode === "normal" ? C.ice : C.cyan, C.bg, easeIn(rp));
+      const r0 = H * 0.32 + easeOut(rp) * W * 0.55, r1 = r0 + W * 0.5 * (1 - rp);
+      rays.forEach(r => {
+        const wa = r.w * (1 - rp);
+        poly([
+          W / 2 + Math.cos(r.a - wa) * r0, H * 0.55 + Math.sin(r.a - wa) * r0,
+          W / 2 + Math.cos(r.a) * r1, H * 0.55 + Math.sin(r.a) * r1,
+          W / 2 + Math.cos(r.a + wa) * r0, H * 0.55 + Math.sin(r.a + wa) * r0,
+        ], col);
+      });
+    }
+
+    // Greeting line
+    const l1 = scramble(line1, t, 0.45, 0.03);
+    if (l1) {
+      const px = H * 0.052;
+      ctx.font = `700 ${px}px ${MONO}`;
+      const spaced = l1.split("").join(" ");
+      const fw = ctx.measureText(line1.split("").join(" ")).width;
+      ctx.save();
+      ctx.translate(W / 2 - fw / 2, H * 0.36); ctx.rotate(-0.06);
+      ctx.textAlign = "left"; ctx.textBaseline = "middle";
+      ctx.fillStyle = C.ice;
+      ctx.fillText(spaced, 0, 0);
+      if (t < IMPACT + 0.4 && Math.floor(t * 8) % 2 === 0) {
+        const cw = ctx.measureText(spaced).width;
+        ctx.fillStyle = C.cyan;
+        ctx.fillRect(cw + px * 0.2, -px * 0.45, px * 0.5, px * 0.9);
+      }
+      ctx.restore();
+    }
+
+    drawName(t);
+
+    // Cut under the name
+    const up = easeOut(clamp((t - IMPACT - 0.08) / 0.25));
+    if (up > 0) {
+      const y = H * 0.8, h = H * 0.016, x0 = W * 0.3, x1 = x0 + up * W * 0.4;
+      poly([x0 + h, y - h / 2, x1 + h, y - h / 2, x1 - h, y + h / 2, x0 - h, y + h / 2], C.cyan);
+    }
+
+    if (t > IMPACT && t < IMPACT + 0.05) {
+      // P5 hits with a hard black frame before the white one
+      ctx.fillStyle = mode === "p5" && t < IMPACT + 0.025 ? C.night : C.ice;
+      ctx.fillRect(-40, -40, W + 80, H + 80);
+    }
+    ctx.restore();
+
+    // Interface layer: every block sits on its own dark panel so it stays readable
+    const hp = easeOut(clamp((t - 0.12) / 0.2));
+    if (hp > 0) {
+      const A = mode === "p5" ? C.bg : C.cyan;   // highlight that reads on the dark panels
+      const m = H * 0.05, len = H * 0.06, o = (1 - hp) * H * 0.05;
+      ctx.strokeStyle = mode === "p5" ? C.ice : C.cyan;
+      ctx.lineWidth = Math.max(2, H * 0.003);
+      ctx.beginPath();
+      [[m - o, m - o, 1, 1], [W - m + o, m - o, -1, 1], [m - o, H - m + o, 1, -1], [W - m + o, H - m + o, -1, -1]]
+        .forEach(([x, y, dx, dy]) => { ctx.moveTo(x + dx * len, y); ctx.lineTo(x, y); ctx.lineTo(x, y + dy * len); });
+      ctx.stroke();
+
+      const fs = H * 0.022, m2 = H * 0.085, pad = fs * 0.7, lh = fs * 1.32;
+      ctx.font = `${fs}px ${MONO}`;
+      const tw = s => ctx.measureText(s).width;
+      ctx.globalAlpha = hp;
+      const panel = (x, y, w, h) => {
+        const k = Math.min(h * 0.4, fs * 0.9);
+        poly([x, y, x + w, y, x + w, y + h - k, x + w - k, y + h, x, y + h], C.night);
+        ctx.fillStyle = A;
+        ctx.fillRect(x, y, Math.max(2, H * 0.003), h);
+      };
+
+      // Top left: header
+      const head = "SYS // STARTUP SEQUENCE";
+      panel(m2 - pad, m2 - fs * 0.95, tw(head) + pad * 2, fs * 1.9);
+      text(scramble(head, t, 0.2, 0.012), m2, m2, fs, MONO, A, "left");
+
+      // Top right: clock and date
+      const date = dateTag(), ck = clock();
+      const trw = Math.max(tw(date), tw(ck)) + pad * 2;
+      panel(W - m2 - trw + pad, m2 - fs * 0.95, trw, fs * 1.9 + lh);
+      text(scramble(ck, t, 0.3, 0.03), W - m2, m2, fs, MONO, C.ice, "right");
+      text(scramble(date, t, 0.32, 0.012), W - m2, m2 + lh, fs, MONO, A, "right");
+
+      // Bottom right: system info
+      panel(W - m2 - tw(SYSINFO) - pad, H - m2 - fs * 0.95, tw(SYSINFO) + pad * 2, fs * 1.9);
+      text(scramble(SYSINFO, t, 0.35, 0.008), W - m2, H - m2, fs, MONO, A, "right");
+
+      // Bottom left: status readout and loading bar
+      const lines = readout.map(([k, v]) => `> ${k.padEnd(8, " ")}${v}`);
+      const bw = W * 0.13, bh = H * 0.008;
+      const by = H - m2 + fs * 0.2, y0 = by - fs * 0.9 - lines.length * lh;
+      const blw = Math.max(bw + tw("100%") + fs * 0.6, ...lines.map(tw).map(v => v * 0.9)) + pad * 2;
+      panel(m2 - pad, y0 - fs * 0.95, blw, by + bh + pad - (y0 - fs * 0.95));
+      lines.forEach((full, i) => {
+        const at = 1.02 + i * 0.08;
+        const line = scramble(full, t, at, 0.01);
+        if (line) text(line, m2, y0 + i * lh, fs * 0.9, MONO, i === 1 && t > at + 0.15 ? A : C.ice, "left");
+      });
+      const lp = easeOut(clamp((t - 1.1) / 1.1));
+      ctx.fillStyle = mix(C.night, C.ice, 0.18);
+      ctx.fillRect(m2, by, bw, bh);
+      if (lp > 0) {
+        ctx.fillStyle = A;
+        ctx.fillRect(m2, by, bw * lp, bh);
+        text(`${Math.round(lp * 100)}%`, m2 + bw + fs * 0.6, by + bh / 2, fs * 0.9, MONO, C.ice, "left");
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Scanlines
+    ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+    const gap = Math.max(3, H / 240);
+    for (let y = 0; y < H; y += gap) ctx.fillRect(0, y, W, 1);
+  }
+
+  // Stand-in for the real desktop the blades open onto
+  function drawDesktop() {
+    const g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, "#2a3f66");
+    g.addColorStop(1, "#101a30");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    const tb = H * 0.065;
+    ctx.fillStyle = "rgba(10, 16, 30, 0.85)";
+    ctx.fillRect(0, H - tb, W, tb);
+    const s = tb * 0.5;
+    for (let i = 0; i < 5; i++) {
+      ctx.fillStyle = i === 0 ? "#4f8fe8" : "rgba(220, 230, 255, 0.35)";
+      ctx.fillRect(W / 2 - s * 4.5 + i * s * 1.8, H - tb / 2 - s / 2, s, s);
+    }
+    text("YOUR DESKTOP", W / 2, H * 0.45, H * 0.03, MONO, "rgba(220, 230, 255, 0.5)", "center");
+  }
+
+  function drawBlades(t) {
+    let off;
+    if (t < CLOSE_END) off = (1 - easeIn(clamp((t - CLOSE_START) / (CLOSE_END - CLOSE_START)))) * H * 0.85;
+    else if (t < OPEN_START) off = 0;
+    else off = easeIn(clamp((t - OPEN_START) / (DURATION - OPEN_START))) * H * 1.1;
+    const e = H * 0.012, L0 = -W * 0.2, R0 = W * 1.2;
+    poly([L0, -H * 2, R0, -H * 2, R0, H * 0.42 - off + e, L0, H * 0.62 - off + e], C.ice);
+    poly([L0, -H * 2, R0, -H * 2, R0, H * 0.42 - off, L0, H * 0.62 - off], C.night);
+    poly([L0, H * 0.62 + off - e, R0, H * 0.42 + off - e, R0, H * 3, L0, H * 3], C.ice);
+    poly([L0, H * 0.62 + off, R0, H * 0.42 + off, R0, H * 3, L0, H * 3], C.night);
+    if (t >= CLOSE_END && t < OPEN_START + 0.05) {
+      const sp = clamp((t - CLOSE_END) / (OPEN_START - CLOSE_END));
+      ctx.strokeStyle = mix(C.ice, C.cyan, sp);
+      ctx.lineWidth = H * 0.012 * (1 - sp * 0.6);
+      ctx.beginPath(); ctx.moveTo(L0, H * 0.62); ctx.lineTo(R0, H * 0.42); ctx.stroke();
+    }
+  }
+
+  function draw(t) {
+    if (t < CLOSE_END) drawScene(t);
+    else drawDesktop();
+    if (t >= CLOSE_START) drawBlades(t);
+    if ((t > 0.04 && t < 0.07) || (t > 0.1 && t < 0.12)) {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+
+  // ---- Dark Hour opening: the midnight clock ticks over, turns green, then shatters ----
+  const TAU = Math.PI * 2;
+  const PRE_DARK = 3.0, T_MID = 1.8, T_CRACK = 2.38, T_SHATTER = 2.62;
+  const CLOCK_WHITE = "#f0f0f0", CLOCK_GREEN = "#3fdc5a";
+  const SERIF = '"Times New Roman", Georgia, serif';
+  const ROMAN = ["XII", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"];
+  const SHARD_N = 11;
+  const CRACK_ANG = Array.from({ length: SHARD_N }, (_, k) => (k + 0.15 + hrand(k + 300) * 0.7) / SHARD_N * TAU);
+  const preLen = () => (mode === "dark" ? PRE_DARK : 0);
+  const shardRange = k => [CRACK_ANG[k], k + 1 < SHARD_N ? CRACK_ANG[k + 1] : CRACK_ANG[0] + TAU];
+  function shardOf(a) {
+    a = ((a % TAU) + TAU) % TAU;
+    for (let k = SHARD_N - 1; k >= 0; k--) if (a >= CRACK_ANG[k]) return k;
+    return SHARD_N - 1;
+  }
+  function seconds(T) { return T >= T_MID ? 0 : 56 + Math.min(3, Math.floor(T / 0.45)); }
+  function clockFrame(T) {
+    return { cx: W / 2, cy: H * 0.52, R: H * 0.36 * (1 + 0.05 * T), sx: 0.8 + 0.08 * Math.sin(T * 0.9), rz: -0.22 + T * 0.06 };
+  }
+  function shardXf(k, T) {
+    const u = clamp((T - T_SHATTER) / 0.6);
+    if (u <= 0) return { dx: 0, dy: 0, spin: 0, a: 1, u: 0 };
+    const [a0, a1] = shardRange(k), m = (a0 + a1) / 2, e = easeOut(u);
+    const d = 0.1 + 1.5 * e + hrand(k + 310) * 0.6 * e;
+    return { dx: Math.sin(m) * d, dy: -Math.cos(m) * d + 1.3 * u * u, spin: (hrand(k + 320) - 0.5) * 3.2 * e, a: 1 - u, u };
+  }
+  function hubXf(T) {
+    const u = clamp((T - T_SHATTER) / 0.5);
+    return { dx: 0, dy: 1.6 * u * u, spin: u * 1.4, a: 1 - u, u };
+  }
+  // Clock-local point (radius 1 = rim) to screen, through a shard's own spin and drift
+  function makeP(F, xf, pivot) {
+    const cs = Math.cos(xf.spin), sn = Math.sin(xf.spin), c = Math.cos(F.rz), s = Math.sin(F.rz);
+    return (x, y) => {
+      const px = x - pivot[0], py = y - pivot[1];
+      const lx = (pivot[0] + px * cs - py * sn + xf.dx) * F.R * F.sx;
+      const ly = (pivot[1] + px * sn + py * cs + xf.dy) * F.R;
+      return [F.cx + lx * c - ly * s, F.cy + lx * s + ly * c];
+    };
+  }
+  const polar = (a, r) => [Math.sin(a) * r, -Math.cos(a) * r];
+
+  function drawClock(T) {
+    const F = clockFrame(T), mid = T >= T_MID;
+    const col = mid ? CLOCK_GREEN : CLOCK_WHITE;
+    const lw = Math.max(1.5, H * 0.004);
+    const xfs = [], Ps = [];
+    for (let k = 0; k < SHARD_N; k++) {
+      const [a0, a1] = shardRange(k), m = (a0 + a1) / 2;
+      xfs[k] = shardXf(k, T);
+      Ps[k] = makeP(F, xfs[k], polar(m, 0.8));
+    }
+    const hx = hubXf(T), HP = makeP(F, hx, [0, 0]);
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineCap = "round";
+    const seg = (P, x0, y0, x1, y1, w) => {
+      const [a, b] = P(x0, y0), [c, d] = P(x1, y1);
+      ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke();
+    };
+    // Rim rings, cut into shards
+    for (let k = 0; k < SHARD_N; k++) {
+      if (xfs[k].a <= 0) continue;
+      ctx.globalAlpha = xfs[k].a;
+      const [a0, a1] = shardRange(k), P = Ps[k];
+      [[1.0, lw * 1.7], [0.93, lw * 0.8], [0.62, lw * 0.6]].forEach(([r, w]) => {
+        ctx.lineWidth = w; ctx.beginPath();
+        for (let j = 0; j <= 12; j++) {
+          const [x, y] = P(...polar(a0 + (a1 - a0) * j / 12, r));
+          j ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        }
+        ctx.stroke();
+      });
+      if (xfs[k].u > 0) [a0, a1].forEach(a => seg(P, ...polar(a, 0.62), ...polar(a, 1.0), lw * 0.7));
+    }
+    // Minute ticks
+    for (let i = 0; i < 60; i++) {
+      const a = i / 60 * TAU, k = shardOf(a);
+      if (xfs[k].a <= 0) continue;
+      ctx.globalAlpha = xfs[k].a;
+      seg(Ps[k], ...polar(a, i % 5 ? 0.87 : 0.81), ...polar(a, 0.93), i % 5 ? lw * 0.6 : lw * 1.4);
+    }
+    // Roman numerals, set radially like the original
+    ROMAN.forEach((n, i) => {
+      const a = i / 12 * TAU, k = shardOf(a);
+      if (xfs[k].a <= 0) return;
+      ctx.globalAlpha = xfs[k].a;
+      const [x, y] = Ps[k](...polar(a, 0.72));
+      text(n, x, y, F.R * 0.12, SERIF, col, "center", F.rz + xfs[k].spin + a);
+    });
+    // Hands and the AM/PM marker fall away together
+    if (hx.a > 0) {
+      ctx.globalAlpha = hx.a;
+      const s = seconds(T);
+      const ph = mid ? T - T_MID : T % 0.45;
+      const wob = Math.exp(-ph * 18) * Math.sin(ph * 60) * 0.05;
+      const secA = s / 60 * TAU + wob;
+      const minA = mid ? 0 : (59 + s / 60) / 60 * TAU;
+      const hrA = mid ? 0 : (11 + (59 + s / 60) / 60) / 12 * TAU;
+      const [mx, my] = HP(...polar(2.35, 0.36));
+      text(mid ? "AM" : "PM", mx, my, F.R * 0.075, MONO, col, "center", F.rz + hx.spin);
+      seg(HP, 0, 0, ...polar(hrA, 0.42), lw * 2.6);
+      seg(HP, 0, 0, ...polar(minA, 0.68), lw * 1.7);
+      seg(HP, ...polar(secA + Math.PI, 0.14), ...polar(secA, 0.84), lw * 0.8);
+      const [hcx, hcy] = HP(0, 0);
+      ctx.beginPath(); ctx.arc(hcx, hcy, lw * 2.2, 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Cracks race out along the break lines, then the face shatters
+    const cg = clamp((T - T_CRACK) / 0.16);
+    if (cg > 0 && T < T_SHATTER + 0.05) {
+      const P0 = makeP(F, { dx: 0, dy: 0, spin: 0 }, [0, 0]);
+      ctx.strokeStyle = DARK_HOUR.ice;
+      ctx.lineWidth = Math.max(1.5, H * 0.003);
+      CRACK_ANG.forEach((a, k) => {
+        ctx.beginPath();
+        const steps = 7, reach = 0.08 + cg * 0.98;
+        for (let j = 0; j <= steps; j++) {
+          const r = 0.08 + (reach - 0.08) * j / steps;
+          const jig = (hrand(k * 17 + j) - 0.5) * 0.09;
+          const [x, y] = P0(...polar(a + jig, r));
+          j ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        }
+        ctx.stroke();
+      });
+    }
+  }
+
+  function floaterText(i, T) {
+    const ss = String(seconds(T)).padStart(2, "0");
+    return (T >= T_MID
+      ? ["00:00", "00:00", "00:00:00", "0000", "12:00"]
+      : ["11:59", "23:59", `11:59:${ss}`, "1159", `23:59:${ss}`])[i % 5];
+  }
+  function drawFloaters(T) {
+    const mid = T >= T_MID;
+    const rush = T > T_SHATTER ? Math.pow(T - T_SHATTER, 2) * 6 : 0;
+    const out = T > T_SHATTER ? 1 - clamp((T - T_SHATTER) / 0.38) : 1;
+    for (let i = 0; i < 26; i++) {
+      const wx = (hrand(i + 400) - 0.5) * 2.4, wy = (hrand(i + 401) - 0.5) * 1.8;
+      const speed = 0.35 + hrand(i + 402) * 0.5;
+      const z = 0.3 + (((hrand(i + 403) * 3 - T * speed - rush) % 3) + 3) % 3;
+      const near = clamp((z - 0.3) / 0.25), far = clamp((3.3 - z) / 0.4);
+      const a = near * far * clamp(T / 0.3) * out * (0.3 + 0.7 * (1 - (z - 0.3) / 3));
+      if (a <= 0.01) continue;
+      const px = Math.min(H * 0.45, H * (0.045 + hrand(i + 404) * 0.07) / z);
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.translate(W / 2 + wx * W * 0.45 / z, H / 2 + wy * H * 0.5 / z);
+      ctx.rotate((hrand(i + 405) - 0.5) * 1.3 + T * (hrand(i + 406) - 0.5) * 0.4);
+      ctx.scale(1, 0.75 + hrand(i + 407) * 0.25);
+      ctx.font = i % 5 === 3 ? `${px}px ${SERIF}` : `700 ${px}px ${MONO}`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = mid ? CLOCK_GREEN : CLOCK_WHITE;
+      ctx.fillText(floaterText(i, T), 0, 0);
+      ctx.restore();
+    }
+  }
+
+  function drawPrelude(T) {
+    const mid = T >= T_MID;
+    ctx.fillStyle = mid ? "#010703" : "#000000";
+    ctx.fillRect(0, 0, W, H);
+    drawFloaters(T);
+    if (T < T_SHATTER + 0.6) drawClock(T);
+    // Midnight: a flash, then a green pulse rolls out from the clock
+    if (T >= T_MID && T < T_MID + 0.06) { ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H); }
+    const pp = clamp((T - T_MID) / 0.7);
+    if (pp > 0 && pp < 1) {
+      const F = clockFrame(T);
+      ctx.strokeStyle = mix(CLOCK_GREEN, "#010703", pp);
+      ctx.lineWidth = H * 0.02 * (1 - pp) + 1;
+      ctx.beginPath(); ctx.ellipse(F.cx, F.cy, F.R * (1 + pp * 2.5), F.R * (1 + pp * 2.5) * 0.82, F.rz, 0, TAU); ctx.stroke();
+    }
+    if (T >= T_SHATTER && T < T_SHATTER + 0.05) {
+      ctx.fillStyle = "rgba(220, 255, 225, 0.85)"; ctx.fillRect(0, 0, W, H);
+    }
+    ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+    const gap = Math.max(3, H / 240);
+    for (let y = 0; y < H; y += gap) ctx.fillRect(0, y, W, 1);
+  }
+
+  function drawAll(T) {
+    const pre = preLen();
+    if (T < pre) { drawPrelude(T); return; }
+    draw(T - pre);
+    // The last clock shards fly out over the start of the splash
+    if (pre && T < T_SHATTER + 0.6) drawClock(T);
+  }
+
+  function frame(now) {
+    const t = (now - start) / 1000, end = DURATION + preLen();
+    drawAll(Math.min(t, end));
+    if (t < end) raf = requestAnimationFrame(frame); else playing = false;
+  }
+  function play() {
+    cancelAnimationFrame(raf);
+    layout(); setup();
+    if (reduced) { draw(2.0); return; }
+    start = performance.now(); playing = true;
+    raf = requestAnimationFrame(frame);
+  }
+  // Any click or key skips straight to the exit
+  function skip() {
+    if (!playing) return;
+    const t = (performance.now() - start) / 1000;
+    const target = preLen() + CLOSE_START;
+    if (t < target) start = performance.now() - target * 1000;
+  }
+  function setMode(m) {
+    mode = m;
+    document.getElementById("mode-normal").setAttribute("aria-pressed", String(m === "normal"));
+    document.getElementById("mode-dh").setAttribute("aria-pressed", String(m === "dark"));
+    document.getElementById("mode-p5").setAttribute("aria-pressed", String(m === "p5"));
+    play();
+  }
+
+  // Freeze on one moment (used for checking frames)
+  window.splashAt = (m, T) => { cancelAnimationFrame(raf); playing = false; mode = m; layout(); setup(); drawAll(T); };
+  document.getElementById("replay").addEventListener("click", play);
+  document.getElementById("mode-normal").addEventListener("click", () => setMode("normal"));
+  document.getElementById("mode-dh").addEventListener("click", () => setMode("dark"));
+  document.getElementById("mode-p5").addEventListener("click", () => setMode("p5"));
+  document.getElementById("stage").addEventListener("click", skip);
+  window.addEventListener("keydown", e => { if (playing && !e.target.closest("button")) skip(); });
+  window.addEventListener("resize", () => { layout(); if (!playing) draw(2.0); });
+
+  const ready = document.fonts && document.fonts.load
+    ? Promise.all([document.fonts.load(`40px ${DISPLAY}`), document.fonts.load(`700 20px ${MONO}`)]).catch(() => {})
+    : Promise.resolve();
+  ready.then(() => { layout(); setup(); draw(2.0); setTimeout(play, 600); });
+})();
+</script>

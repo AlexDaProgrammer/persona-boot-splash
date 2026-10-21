@@ -1,0 +1,6 @@
+# Per-machine state written by the splash
+src/splash_mode.txt
+src/splash_error.log
+__pycache__/
+*.pyc
+*.whl
