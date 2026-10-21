@@ -147,7 +147,7 @@
     if (darkHour) return "THE DARK HOUR";
     if (mode === "p5") return "SEIZE THE DAY";
     const h = new Date().getHours();
-    return h >= 5 && h < 12 ? "GOOD MORNING" : h >= 12 && h < 17 ? "GOOD AFTERNOON" : h >= 17 && h < 23 ? "GOOD EVENING" : "WELCOME BACK";
+    return h >= 5 && h < 12 ? "GOOD MORNING" : h >= 12 && h < 17 ? "GOOD AFTERNOON" : h >= 17 && h < 18 ? "GOOD EVENING" : "COLOR YOUR NIGHT";
   }
   function dateTag() {
     const d = new Date();

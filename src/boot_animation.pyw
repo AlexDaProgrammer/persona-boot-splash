@@ -189,10 +189,10 @@ elif 5 <= hour < 12:
     LINE1 = "GOOD MORNING"
 elif 12 <= hour < 17:
     LINE1 = "GOOD AFTERNOON"
-elif 17 <= hour < 23:
+elif 17 <= hour < 18:
     LINE1 = "GOOD EVENING"
 else:
-    LINE1 = "WELCOME BACK"
+    LINE1 = "COLOR YOUR NIGHT"   # 6 pm to 5 am
 LINE1_SPACED = " ".join(LINE1)
 BAND_TEXT = ("MEMENTO MORI" if DARK_MODE else "LIFE WILL CHANGE" if P5_MODE else random.choice(PHRASES)) + "  //  "
 CLOCK = "00:00" if DARK_MODE else time.strftime("%H:%M")

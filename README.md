@@ -20,7 +20,7 @@ A full-screen "Welcome back" animation for Windows that plays the moment you sig
 
 ## What it shows
 
-- A greeting based on the time of day: GOOD MORNING, GOOD AFTERNOON or GOOD EVENING.
+- A greeting based on the time of day: GOOD MORNING, GOOD AFTERNOON, GOOD EVENING, or COLOR YOUR NIGHT from 6 pm to 5 am. Persona 5 mode always says SEIZE THE DAY.
 - Your PC name, Windows version and build, uptime, battery, Windows power mode and free disk space, read live at startup.
 - The current time and date.
 
