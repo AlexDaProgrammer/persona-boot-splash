@@ -9,7 +9,7 @@ A full-screen "Welcome back" animation for Windows that plays the moment you sig
 | Mode | Look |
 | --- | --- |
 | **Normal** | Persona 3 blue. Rising bubble rings at the sides, cyan shards, "BURN MY DREAD" rows rushing in the background, and a rotating band phrase. |
-| **Persona 5** | Red, black and white. Streaks shoot in from the screen edges into sharp speech-bubble points, with sparkle stars, halftone corners and a hard black-then-white impact flash. |
+| **Persona 5** | Red, black and white, greeting you with SEIZE THE DAY. Streaks shoot in from the screen edges into sharp speech-bubble points, with sparkle stars, halftone corners and a hard black-then-white impact flash. |
 | **Dark Hour** | An easter egg. A midnight clock ticks over to 12:00, everything turns green, then the clock cracks and shatters into a green splash with rising coffins and embers. It adds 3 seconds. |
 | **Auto** (default) | Normal, except that it switches to Dark Hour if you sign in between 00:00 and 01:00. |
 

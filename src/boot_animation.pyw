@@ -183,6 +183,8 @@ def read_sysinfo():
 hour = time.localtime().tm_hour
 if DARK_MODE:
     LINE1 = "THE DARK HOUR"
+elif P5_MODE:
+    LINE1 = "SEIZE THE DAY"
 elif 5 <= hour < 12:
     LINE1 = "GOOD MORNING"
 elif 12 <= hour < 17:
@@ -192,7 +194,7 @@ elif 17 <= hour < 23:
 else:
     LINE1 = "WELCOME BACK"
 LINE1_SPACED = " ".join(LINE1)
-BAND_TEXT = ("MEMENTO MORI" if DARK_MODE else "SEIZE THE DAY" if P5_MODE else random.choice(PHRASES)) + "  //  "
+BAND_TEXT = ("MEMENTO MORI" if DARK_MODE else "LIFE WILL CHANGE" if P5_MODE else random.choice(PHRASES)) + "  //  "
 CLOCK = "00:00" if DARK_MODE else time.strftime("%H:%M")
 DATE_TAG = time.strftime("%a %d %b %Y").upper()
 SYSINFO = read_sysinfo()
